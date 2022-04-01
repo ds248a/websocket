@@ -18,14 +18,17 @@ var (
 	ErrInvalidMessageType = errors.New("invalid message type")
 )
 
-// Listener .
+// ------------------------
+//   Listener
+// ------------------------
+
 type Listener struct {
 	addr        net.Addr
 	upgrader    *websocket.Upgrader
 	acceptQueue chan net.Conn
 }
 
-// Handler .
+//
 func (ln *Listener) Handler(w http.ResponseWriter, r *http.Request) {
 	c, err := ln.upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -34,8 +37,12 @@ func (ln *Listener) Handler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer c.Close()
 
-	wsc := &Conn{Conn: c, chHandler: make(chan func(), 1)}
+	wsc := &Conn{
+		Conn:      c,
+		chHandler: make(chan func(), 1),
+	}
 	ln.acceptQueue <- wsc
+
 	timeout := time.NewTimer(time.Second)
 	select {
 	case handler := <-wsc.chHandler:
@@ -45,18 +52,18 @@ func (ln *Listener) Handler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Close .
+//
 func (ln *Listener) Close() error {
 	close(ln.acceptQueue)
 	return nil
 }
 
-// Addr .
+//
 func (ln *Listener) Addr() net.Addr {
 	return ln.addr
 }
 
-// Accept .
+//
 func (ln *Listener) Accept() (net.Conn, error) {
 	c := <-ln.acceptQueue
 	if c != nil {
@@ -65,6 +72,10 @@ func (ln *Listener) Accept() (net.Conn, error) {
 	return nil, ErrClosed
 }
 
+// ------------------------
+//   Conn
+// ------------------------
+
 // Conn wraps websocket.Conn to net.Conn
 type Conn struct {
 	*websocket.Conn
@@ -72,7 +83,7 @@ type Conn struct {
 	buffer    []byte
 }
 
-// HandleWebsocket .
+//
 func (c *Conn) HandleWebsocket(handler func()) {
 	select {
 	case c.chHandler <- handler:
@@ -80,7 +91,7 @@ func (c *Conn) HandleWebsocket(handler func()) {
 	}
 }
 
-// Read .
+//
 func (c *Conn) Read(b []byte) (int, error) {
 	var (
 		err error
@@ -127,6 +138,7 @@ func Listen(addr string, upgrader *websocket.Upgrader) (net.Listener, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if upgrader == nil {
 		upgrader = &websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
@@ -134,11 +146,13 @@ func Listen(addr string, upgrader *websocket.Upgrader) (net.Listener, error) {
 			},
 		}
 	}
+
 	ln := &Listener{
 		addr:        tcpAddr,
 		upgrader:    upgrader,
 		acceptQueue: make(chan net.Conn, 4096),
 	}
+
 	return ln, nil
 }
 
@@ -148,5 +162,6 @@ func Dial(url string) (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return &Conn{Conn: c}, nil
 }

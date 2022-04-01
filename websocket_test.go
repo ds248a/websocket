@@ -7,16 +7,17 @@ import (
 )
 
 func TestAll(t *testing.T) {
-	ln, _ := Listen("localhost:8888", nil)
+	str := "test websocket"
+
+	ln, _ := Listen("localhost:5000", nil)
 	http.HandleFunc("/ws", ln.(*Listener).Handler)
+
 	go func() {
-		err := http.ListenAndServe("localhost:8888", nil)
+		err := http.ListenAndServe("localhost:5000", nil)
 		if err != nil {
 			log.Fatal("ListenAndServe: ", err)
 		}
 	}()
-
-	str := "hello"
 
 	go func() {
 		conn, err := ln.Accept()
@@ -30,19 +31,25 @@ func TestAll(t *testing.T) {
 		if err != nil {
 			log.Fatalf("failed to listen: %v", err)
 		}
+
 		conn.Write(bread)
 	}()
 
-	conn, err := Dial("ws://localhost:8888/ws")
+	// dial
+	conn, err := Dial("ws://localhost:5000/ws")
 	if err != nil {
 		t.Fatalf("failed to listen: %v", err)
 	}
 	defer conn.Close()
+
+	// write
 	bread := make([]byte, len(str))
 	nwrite, err := conn.Write([]byte(str))
 	if err != nil || nwrite != len(str) {
 		t.Fatalf("failed to listen: %v", err)
 	}
+
+	// read
 	_, err = conn.Read(bread)
 	if err != nil || string(bread) != str {
 		t.Fatalf("failed to listen: %v", err)
